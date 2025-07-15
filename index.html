@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Masomo Reward Wheel</title>
   <style>
     body {
@@ -24,6 +24,7 @@
       border: 10px solid #ffa726;
       box-shadow: 0 0 10px rgba(0,0,0,0.3);
       transition: transform 5s ease-out;
+      cursor: pointer;
     }
     #pointer {
       position: absolute;
@@ -35,6 +36,7 @@
       border-left: 20px solid transparent;
       border-right: 20px solid transparent;
       border-bottom: 30px solid red;
+      z-index: 10;
     }
     #spin-btn {
       margin-top: 20px;
@@ -51,6 +53,7 @@
       font-size: 20px;
       font-weight: bold;
       white-space: pre-wrap;
+      min-height: 60px;
     }
   </style>
 </head>
@@ -84,12 +87,19 @@
     const resultDiv = document.getElementById('result');
     let isSpinning = false;
 
-    const nationalId = sessionStorage.getItem("nationalId") || prompt("Enter your National ID:");
-    if (nationalId) sessionStorage.setItem("nationalId", nationalId);
+    let nationalId = sessionStorage.getItem("nationalId");
+    if (!nationalId) {
+      nationalId = prompt("Enter your National ID:");
+      if (nationalId) {
+        nationalId = nationalId.trim();
+        sessionStorage.setItem("nationalId", nationalId);
+      }
+    }
 
     const drawWheel = () => {
       const numSegments = segments.length;
       const angleStep = (2 * Math.PI) / numSegments;
+      ctx.clearRect(0, 0, wheelCanvas.width, wheelCanvas.height);
       for (let i = 0; i < numSegments; i++) {
         const angle = i * angleStep;
         ctx.beginPath();
@@ -122,11 +132,19 @@
 
       const randomIndex = Math.floor(Math.random() * segments.length);
       const degPerSeg = 360 / segments.length;
-      const stopAngle = 360 * 5 + (360 - randomIndex * degPerSeg - degPerSeg / 2);
+      const spinsCount = 5;
+      const stopAngle = 360 * spinsCount + (360 - randomIndex * degPerSeg - degPerSeg / 2);
+
       wheelCanvas.style.transition = 'transform 5s ease-out';
       wheelCanvas.style.transform = `rotate(${stopAngle}deg)`;
 
-      setTimeout(() => {
+      const onTransitionEnd = () => {
+        wheelCanvas.style.transition = 'none';
+        // Keep final rotation modulo 360 to prevent overflow
+        const finalRotation = stopAngle % 360;
+        wheelCanvas.style.transform = `rotate(${finalRotation}deg)`;
+        wheelCanvas.removeEventListener('transitionend', onTransitionEnd);
+
         const prize = segments[randomIndex];
         resultDiv.textContent = `🎉 You won ${prize.label}`;
 
@@ -146,10 +164,12 @@
           isSpinning = false;
         })
         .catch(err => {
-          resultDiv.textContent += `\nServer error. Please try again.`;
+          resultDiv.textContent += `\nServer error. Please try again. ${err.message}`;
           isSpinning = false;
         });
-      }, 5000);
+      };
+
+      wheelCanvas.addEventListener('transitionend', onTransitionEnd);
     };
   </script>
 </body>
