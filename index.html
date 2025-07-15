@@ -50,6 +50,7 @@
       margin-top: 30px;
       font-size: 20px;
       font-weight: bold;
+      white-space: pre-wrap;
     }
   </style>
 </head>
@@ -83,6 +84,9 @@
     const resultDiv = document.getElementById('result');
     let isSpinning = false;
 
+    const nationalId = sessionStorage.getItem("nationalId") || prompt("Enter your National ID:");
+    if (nationalId) sessionStorage.setItem("nationalId", nationalId);
+
     const drawWheel = () => {
       const numSegments = segments.length;
       const angleStep = (2 * Math.PI) / numSegments;
@@ -108,30 +112,43 @@
 
     spinBtn.onclick = () => {
       if (isSpinning) return;
+      if (!nationalId) {
+        alert("National ID is required to play.");
+        return;
+      }
+
       isSpinning = true;
       resultDiv.textContent = '';
+
       const randomIndex = Math.floor(Math.random() * segments.length);
       const degPerSeg = 360 / segments.length;
       const stopAngle = 360 * 5 + (360 - randomIndex * degPerSeg - degPerSeg / 2);
+      wheelCanvas.style.transition = 'transform 5s ease-out';
       wheelCanvas.style.transform = `rotate(${stopAngle}deg)`;
 
       setTimeout(() => {
         const prize = segments[randomIndex];
         resultDiv.textContent = `🎉 You won ${prize.label}`;
 
-        // Send result to server (code.gs backend)
+        // Send to backend
         fetch("https://script.google.com/macros/s/AKfycbws5Desad0s8OKPmVBR_Honw63B10-Eip-dg1QRWWHKk-nYlKzXMQxBgzUgl5cBB0aEtg/exec", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             action: "spin",
             prize: prize.value,
+            nationalId: nationalId
           }),
+        })
+        .then(res => res.text())
+        .then(msg => {
+          resultDiv.textContent += `\n${msg}`;
+          isSpinning = false;
+        })
+        .catch(err => {
+          resultDiv.textContent += `\nServer error. Please try again.`;
+          isSpinning = false;
         });
-
-        isSpinning = false;
       }, 5000);
     };
   </script>
